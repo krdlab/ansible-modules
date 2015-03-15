@@ -1,0 +1,17 @@
+---
+# file: test.yml
+
+- hosts:
+    - tests
+  tasks:
+    - cabal: state=latest
+
+    - cabal: name=aeson state=absent
+    - cabal: name=aeson
+    #- cabal: name=aeson version=0.7.0.6
+
+    #- cabal: state=latest
+    #  sudo: yes
+    #- cabal: name=aeson version=0.7.0.6 global=yes
+    #  sudo: yes
+

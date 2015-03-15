@@ -1,0 +1,166 @@
+#!/usr/bin/python
+# vi: set ft=python :
+
+DOCUMENTATION = '''
+---
+module: cabal
+short_description: Manage Haskell packages
+description:
+  - Manage Haskell packages with Cabal (cabal-install).
+version_added: 1.7.2
+author: Sho Kuroda (krdlab@gmail.com)
+options:
+  name:
+    description:
+      - The name of a Haskell package to install
+    required: false
+  version:
+    description:
+      - The version to be installed
+    required: false
+  global:
+    description:
+      - Install the Haskell package globally
+    required: false
+    default: no
+    choices: ["yes", "no"]
+  state:
+    description:
+      - The state of the Haskell package
+    required: false
+    default: present
+    choices: ["present", "absent", "latest"]
+'''
+
+EXAMPLES = '''
+description: Install "text" package (per-user installation).
+- cabal: name=text
+
+description: Install "text" package (disable per-user installation).
+- cabal: name=text global=yes
+
+description: Install "text" package on version 0.11.3.1
+- cabal: name=text version=0.11.3.1
+
+description: Update the cabal index
+- cabal: state=latest
+'''
+
+import os
+
+class Cabal(object):
+    def __init__(self, module):
+        self.module = module
+        self.name = module.params['name']
+        self.version = module.params['version']
+        self._global = module.params['global']
+        self.state = module.params['state']
+
+        if self.version:
+            self.name_version = self.name + '-' + self.version
+        else:
+            self.name_version = self.name
+
+        self.executable = [module.get_bin_path('cabal', True)]
+
+    def _exec(self, args, use_cabal=True, run_in_check_mode=False, check_rc=True):
+        if not self.module.check_mode or (self.module.check_mode and run_in_check_mode):
+            cmd = None
+            if use_cabal:
+                cmd = self.executable + args
+            else:
+                cmd = args
+            if self._global:
+                cmd.append('--global')
+
+            rc, out, err = self.module.run_command(cmd, check_rc=check_rc)
+            return out
+        return ''
+
+    def to_pkgs_dict(self, lines):
+        d = {}
+        if lines:
+            for line in lines.split('\n'):
+                ws = line.split(' ')
+                if len(ws) == 2:
+                    d[ws[0]] = ws[1]
+                elif len(ws) == 1:
+                    d[ws[0]] = None
+        return d
+
+    def list(self):
+        cmd       = ['list', '--installed', '--simple-output']
+        pkgs      = self.to_pkgs_dict(self._exec(cmd, run_in_check_mode=True, check_rc=False))
+        installed = []
+        missing   = []
+        for pn, pv in pkgs.items():
+            if self.name == pn:
+                if self.state == 'present':
+                    if not self.version:
+                        installed.append(self.name)
+                    elif self.version == pv:
+                        installed.append(self.name)
+                elif self.state == 'absent':
+                    installed.append(self.name)
+                # 'latest' is always 'missing'
+                break
+        if not self.name in installed:
+            missing.append(self.name)
+
+        return installed, missing
+
+    def install(self):
+        return self._exec(['install', self.name_version])
+
+    def update(self):
+        return self._exec(['update'])
+
+    def uninstall(self):
+        return self._exec(['ghc-pkg', 'unregister', self.name_version], use_cabal=False)
+
+    def run(self):
+        if self.state == 'present':
+            installed, missing = self.list()
+            if len(missing):
+                self.install()
+                return True
+        elif self.state == 'latest':
+            if not self.name:
+                self.update();
+                return True
+            installed, missing = self.list()
+            if len(missing):
+                self.install()
+                return True
+        else: # absent
+            installed, missing = self.list()
+            if self.name in installed:
+                self.uninstall()
+                return True
+        return False
+
+    def validate(self):
+        if self.state == 'absent' and not self.name:
+            self.module.fail_json(msg='name must be specified when state is absent')
+
+def main():
+    arg_spec = dict(
+        name    = dict(default=None),
+        version = dict(default=None),
+        state   = dict(default='present', choices=['present', 'absent', 'latest'])
+    )
+    arg_spec['global'] = dict(default='no', type='bool')
+
+    module = AnsibleModule(
+        argument_spec       = arg_spec,
+        supports_check_mode = True
+    )
+
+    cabal = Cabal(module)
+    cabal.validate()
+
+    changed = cabal.run()
+    module.exit_json(changed = changed)
+
+from ansible.module_utils.basic import *
+main()
