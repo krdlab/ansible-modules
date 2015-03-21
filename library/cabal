@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # vi: set ft=python :
 
+# (c) 2015, Sho Kuroda <krdlab@gmail.com>
+
 DOCUMENTATION = '''
 ---
 module: cabal
