@@ -79,7 +79,7 @@ class Cabal(object):
             return out
         return ''
 
-    def to_pkgs_dict(self, lines):
+    def _to_pkgs_dict(self, lines):
         d = {}
         if lines:
             for line in lines.split('\n'):
@@ -92,7 +92,7 @@ class Cabal(object):
 
     def list(self):
         cmd       = ['list', '--installed', '--simple-output']
-        pkgs      = self.to_pkgs_dict(self._exec(cmd, run_in_check_mode=True, check_rc=False))
+        pkgs      = self._to_pkgs_dict(self._exec(cmd, run_in_check_mode=True, check_rc=False))
         installed = []
         missing   = []
         for pn, pv in pkgs.items():
