@@ -32,6 +32,16 @@ options:
     required: false
     default: present
     choices: ["present", "absent", "latest"]
+  get:
+    description:
+      - Get the Haskell package's source code
+    required: false
+    default: no
+    choices: ["yes", "no"]
+  destdir:
+    description:
+      - Whare to place the package source
+    required: false
 '''
 
 EXAMPLES = '''
@@ -46,6 +56,9 @@ description: Install "text" package on version 0.11.3.1
 
 description: Update the cabal index
 - cabal: state=latest
+
+description: Get "ghc-mod" package source
+- cabal: name=ghc-mod get=yes destdir=/tmp
 '''
 
 import os
@@ -57,6 +70,8 @@ class Cabal(object):
         self.version = module.params['version']
         self._global = module.params['global']
         self.state = module.params['state']
+        self.subcommand = Cabal._get_subcommand(module.params)
+        self.destdir = module.params['destdir']
 
         if self.version:
             self.name_version = self.name + '-' + self.version
@@ -64,6 +79,13 @@ class Cabal(object):
             self.name_version = self.name
 
         self.executable = module.get_bin_path('cabal', True)
+
+    @staticmethod
+    def _get_subcommand(params):
+        if params['get']:
+            return 'get'
+        else:
+            return None     # not specified
 
     def _exec(self, args, use_cabal=True, run_in_check_mode=False, check_rc=True):
         if not self.module.check_mode or (self.module.check_mode and run_in_check_mode):
@@ -120,7 +142,17 @@ class Cabal(object):
     def uninstall(self):
         return self._exec(['ghc-pkg', 'unregister', self.name_version], use_cabal=False)
 
+    def get(self):
+        cmd = ['get', self.name_version]
+        if self.destdir:
+            cmd.append('--destdir=' + self.destdir)
+        return self._exec(cmd)
+
     def run(self):
+        if self.subcommand == 'get':
+            self.get()
+            return True
+
         if self.state == 'present':
             installed, missing = self.list()
             if len(missing):
@@ -149,7 +181,9 @@ def main():
     arg_spec = dict(
         name    = dict(default=None),
         version = dict(default=None),
-        state   = dict(default='present', choices=['present', 'absent', 'latest'])
+        state   = dict(default='present', choices=['present', 'absent', 'latest']),
+        get     = dict(default='no', type='bool'),
+        destdir = dict(default=None, type='str')
     )
     arg_spec['global'] = dict(default='no', type='bool')
 
