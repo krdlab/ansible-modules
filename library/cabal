@@ -40,7 +40,7 @@ options:
     choices: ["yes", "no"]
   destdir:
     description:
-      - Whare to place the package source
+      - Where to place the package source
     required: false
 '''
 
