@@ -64,13 +64,13 @@ class Cabal(object):
         else:
             self.name_version = self.name
 
-        self.executable = [module.get_bin_path('cabal', True)]
+        self.executable = module.get_bin_path('cabal', True)
 
     def _exec(self, args, use_cabal=True, run_in_check_mode=False, check_rc=True):
         if not self.module.check_mode or (self.module.check_mode and run_in_check_mode):
             cmd = None
             if use_cabal:
-                cmd = self.executable + args
+                cmd = [self.executable] + args
             else:
                 cmd = args
             if self._global:
