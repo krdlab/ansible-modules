@@ -10,7 +10,6 @@ module: cabal
 short_description: Manage Haskell packages
 description:
   - Manage Haskell packages with Cabal (cabal-install).
-version_added: 1.7.2
 author: Sho Kuroda (krdlab@gmail.com)
 options:
   name:
